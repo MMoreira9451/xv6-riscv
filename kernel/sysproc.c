@@ -98,3 +98,39 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getppid(void)
+{
+  return myproc()->parent->pid;
+}
+
+uint64
+sys_getancestor(void)
+{
+  int generation;
+  
+  // Obtener el parámetro (número de generaciones)
+  argint(0, &generation);
+    
+  // Validar que sea un número no negativo
+  if(generation < 0)
+    return -1;
+    
+  struct proc *current = myproc();
+  
+  // Si generation es 0, retorna el mismo proceso
+  if(generation == 0)
+    return current->pid;
+    
+  // Recorrer hacia arriba en la jerarquía de procesos
+  for(int i = 0; i < generation; i++) {
+    if(current->parent == 0) {
+      // No hay más ancestros
+      return -1;
+    }
+    current = current->parent;
+  }
+  
+  return current->pid;
+}
