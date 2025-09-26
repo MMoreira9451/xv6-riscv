@@ -1,6 +1,6 @@
 # INFORME - Tarea 1: Implementación de Llamadas al Sistema
 
-**Estudiante:** Mateo Moreira
+**Estudiante:** Mateo Moreira y Nevile Olguin
 **Curso:** Sistemas Operativos TICS312
 **Fecha:** 9/25/2025
 
