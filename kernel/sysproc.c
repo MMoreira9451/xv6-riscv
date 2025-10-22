@@ -98,3 +98,22 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+
+uint64
+sys_settickets(void)
+{
+  int n;
+  
+  argint(0, &n);  // Sin el if, argint es void
+  
+  if(n < 1)
+    n = 1;  // Mínimo 1 ticket
+    
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  p->tickets = n;
+  release(&p->lock);
+  
+  return 0;
+}

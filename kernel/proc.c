@@ -124,6 +124,8 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->tickets = 100;
+  p->cpu_slices =100;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -286,6 +288,9 @@ fork(void)
 
   pid = np->pid;
 
+  np->tickets = p->tickets;      // El hijo hereda los tickets del padre
+  np->cpu_slices = 0; 
+
   release(&np->lock);
 
   acquire(&wait_lock);
@@ -420,38 +425,53 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-
+  
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
+    // Evitar interrupciones mientras elegimos proceso
     intr_on();
-    intr_off();
-
-    int found = 0;
+    
+    // Calcular el total de tickets de procesos RUNNABLE
+    int total_tickets = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        total_tickets += p->tickets;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
+    
+    // Si no hay procesos listos, continuar
+    if(total_tickets == 0) {
+      continue;
+    }
+    
+    // Generar número aleatorio entre 1 y total_tickets
+    int winner = (ticks * 1103515245 + 12345) % total_tickets + 1;
+    
+    // Encontrar el proceso ganador
+    int accumulated = 0;
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      
+      if(p->state == RUNNABLE) {
+        accumulated += p->tickets;
+        
+        if(accumulated >= winner) {
+          // Este proceso gana la lotería
+          p->state = RUNNING;
+          p->cpu_slices++;  // Incrementar contador
+          c->proc = p;
+          
+          swtch(&c->context, &p->context);
+          
+          c->proc = 0;
+        }
+      }
+      release(&p->lock);
+      
+      if(accumulated >= winner)
+        break;
     }
   }
 }
@@ -461,8 +481,7 @@ scheduler(void)
 // intena because intena is a property of this
 // kernel thread, not this CPU. It should
 // be proc->intena and proc->noff, but that would
-// break in the few places where a lock is held but
-// there's no process.
+// break in the few places where a lock is held but// there's no process.
 void
 sched(void)
 {
