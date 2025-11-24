@@ -98,3 +98,39 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Syscall para proteger contra lectura
+uint64
+sys_mrdprotect(void)
+{
+  uint64 addr;
+  int len;
+  struct proc *p = myproc();
+  
+  argaddr(0, &addr);
+  argint(1, &len);
+  
+  // Verificar que la dirección esté en espacio de usuario
+  if(addr >= p->sz || addr + len * PGSIZE > p->sz)
+    return -1;
+  
+  return mrdprotect(p->pagetable, addr, len);
+}
+
+// Syscall para restaurar lectura
+uint64
+sys_munrdprotect(void)
+{
+  uint64 addr;
+  int len;
+  struct proc *p = myproc();
+  
+  argaddr(0, &addr);
+  argint(1, &len);
+  
+  // Verificar que la dirección esté en espacio de usuario
+  if(addr >= p->sz || addr + len * PGSIZE > p->sz)
+    return -1;
+  
+  return munrdprotect(p->pagetable, addr, len);
+}

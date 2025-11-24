@@ -485,3 +485,72 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+// Proteger páginas contra lectura
+int
+mrdprotect(pagetable_t pagetable, uint64 va, int npages)
+{
+  pte_t *pte;
+  uint64 a;
+  
+  // Verificar alineación
+  if(va % PGSIZE != 0)
+    return -1;
+    
+  // Verificar npages válido
+  if(npages <= 0)
+    return -1;
+  
+  for(a = va; a < va + npages * PGSIZE; a += PGSIZE) {
+    // Obtener PTE para esta dirección
+    pte = walk(pagetable, a, 0);
+    
+    if(pte == 0)
+      return -1;
+      
+    if((*pte & PTE_V) == 0)
+      return -1;
+      
+    if((*pte & PTE_U) == 0)
+      return -1;
+    
+    // Limpiar bit de lectura pero mantener otros bits
+    *pte = (*pte & ~PTE_R);
+  }
+  
+  return 0;
+}
+
+// Restaurar permiso de lectura
+int
+munrdprotect(pagetable_t pagetable, uint64 va, int npages)
+{
+  pte_t *pte;
+  uint64 a;
+  
+  // Verificar alineación
+  if(va % PGSIZE != 0)
+    return -1;
+    
+  // Verificar npages válido
+  if(npages <= 0)
+    return -1;
+  
+  for(a = va; a < va + npages * PGSIZE; a += PGSIZE) {
+    // Obtener PTE para esta dirección
+    pte = walk(pagetable, a, 0);
+    
+    if(pte == 0)
+      return -1;
+      
+    if((*pte & PTE_V) == 0)
+      return -1;
+      
+    if((*pte & PTE_U) == 0)
+      return -1;
+    
+    // Restaurar bit de lectura
+    *pte = (*pte | PTE_R);
+  }
+  
+  return 0;
+}
